@@ -1,0 +1,13 @@
+REEL ENGINE — WINDOWS QUICK START
+
+1. Install Python 3.11+ from https://www.python.org/downloads/ and check Add Python to PATH.
+2. Install Node.js 22+ from https://nodejs.org/.
+3. Install FFmpeg: winget install Gyan.FFmpeg
+4. Open a fresh terminal after installation, or restart Windows if PATH has not refreshed.
+5. Double-click start-reel.cmd. Dependencies install in this folder on first launch.
+6. Open https://reel-download-studio-9nov.ampledulse1.chatgpt.site
+7. Allow local-network access when prompted. Keep the engine window open.
+
+Only public YouTube and TikTok videos are supported. Save finished files before restarting the engine: its temporary download cache is cleared on startup. Nothing is uploaded to a conversion service. This engine listens only on your computer at 127.0.0.1:8941.
+
+If installation fails, check that python, node, ffmpeg and ffprobe are available from a terminal. Platform restrictions can make some videos unavailable.
