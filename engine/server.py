@@ -28,10 +28,11 @@ DEPS = Path(os.environ.get("REEL_PYTHON_DEPS", ROOT / ".deps"))
 sys.path.insert(0, str(DEPS))
 SITE = "https://reel-download-studio-9nov.ampledulse1.chatgpt.site"
 PAGES_SITE = "https://4ndr3js.github.io/reel/"
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 ORIGINS = {SITE, "https://4ndr3js.github.io", "http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:4173", "http://localhost:4173"}
 SESSION = secrets.token_urlsafe(32)
 JOBS: dict[str, dict] = {}
+JOB_EVENTS: dict[str, threading.Event] = {}
 CACHE: dict[str, tuple[float, dict]] = {}
 LOCK = threading.RLock()
 POOL = concurrent.futures.ThreadPoolExecutor(max_workers=2)
@@ -80,7 +81,8 @@ def common_options():
     return {
         "quiet": True, "no_warnings": True, "noplaylist": True, "cachedir": False,
         "socket_timeout": 20, "retries": 2, "extractor_retries": 1,
-        "fragment_retries": 2, "js_runtimes": {"node": {}},
+        "fragment_retries": 2, "concurrent_fragment_downloads": 8,
+        "js_runtimes": {"node": {}},
         "max_filesize": MAX_BYTES,
         "windowsfilenames": True, "restrictfilenames": False,
     }
@@ -231,6 +233,10 @@ def execute_job(job_id, request):
             JOBS[job_id].update(state="error", percent=0, message="The engine couldn’t finish this download.")
     finally:
         timer.cancel()
+        with LOCK:
+            event = JOB_EVENTS.get(job_id)
+            if event:
+                event.set()
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "Reel/" + VERSION
@@ -296,6 +302,33 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(404, {"error": "File belongs to a previous session"})
         if match[1] == "jobs":
             return self.json(200, job)
+        if parse_qs(urlparse(self.path).query).get("wait") == ["1"]:
+            if job["state"] not in ("complete", "error"):
+                with LOCK:
+                    event = JOB_EVENTS.get(match[2])
+                if event:
+                    event.wait(timeout=900)
+                with LOCK:
+                    job = dict(JOBS.get(match[2], {}))
+            if not job or job["state"] not in ("complete", "error"):
+                message = "This download took too long. Return to REEL and try again."
+                code = 504
+            elif job["state"] == "error":
+                message = job.get("message", "Couldn’t retrieve this video. Return to REEL and try again.")
+                code = 422
+            else:
+                message = ""
+                code = 200
+            if code != 200:
+                body = ("<!doctype html><meta charset=utf-8><title>REEL download</title>"
+                        "<body style='font:16px/1.6 system-ui;max-width:520px;margin:64px auto;padding:20px;color:#293324'>"
+                        "<h1>REEL couldn’t finish this file</h1><p>" + html.escape(message) +
+                        "</p><p><a href='" + PAGES_SITE + "'>Return to REEL</a></p></body>").encode("utf-8")
+                self.send_response(code); self.response_headers()
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body))); self.end_headers()
+                self.wfile.write(body)
+                return
         if job["state"] != "complete":
             return self.json(409, {"error": "File is not ready"})
         file = DOWNLOADS / match[2] / ("media." + job["format"])
@@ -363,6 +396,7 @@ class Handler(BaseHTTPRequestHandler):
                 meta = CACHE.get(url, (0, {}))[1]
                 job = {"id": job_id, "url": url, "title": meta.get("title") or "Finding your video…", "format": fmt, "state": "queued", "percent": 0, "message": "Waiting on the desk…", "created": time.time()}
                 JOBS[job_id] = job
+                JOB_EVENTS[job_id] = threading.Event()
                 payload = {"url": url, "format": fmt, "quality": quality, "mono": body.get("mono") is True}
                 POOL.submit(execute_job, job_id, payload)
                 return self.json(202, dict(job))
