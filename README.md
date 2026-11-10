@@ -23,7 +23,9 @@ The GitHub repository is private. The GitHub Pages website is public; hosting Pa
 
 The repository includes .github/workflows/pages.yml. Pushes to main run a static Vite build of the same React interface, then publish dist-pages using GitHub Actions. No cloud worker or Python process is deployed to Pages. The source includes the original Vinext build as a separate option.
 
-Enable Pages under Settings > Pages > Build and deployment > GitHub Actions. The repository must be on an eligible plan for private-repository Pages. If GitHub rejects Pages activation, the repository can stay private and the build artifact remains available, but the site will not deploy until the account is eligible.
+Enable Pages under Settings > Pages > Build and deployment > GitHub Actions. The repository must be on an eligible plan for private-repository Pages. If Pages is unavailable, the workflow still builds and uploads the artifact, then skips deployment with an explanation. After upgrading and enabling Pages, run the workflow manually from the Actions tab.
+
+Activation status: GitHub rejected private-repository Pages activation on 10 November 2026 because the account's current plan does not support it. The repository remains private. No Pages deployment is live yet.
 
 - npm run build:pages builds the static site and refreshed engine ZIP.
 - npm run preview:pages previews it at http://127.0.0.1:4173/reel/.
