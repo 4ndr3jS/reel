@@ -23,7 +23,8 @@ DOWNLOADS = DATA / "downloads"
 DEPS = Path(os.environ.get("REEL_PYTHON_DEPS", ROOT / ".deps"))
 sys.path.insert(0, str(DEPS))
 SITE = "https://reel-download-studio-9nov.ampledulse1.chatgpt.site"
-ORIGINS = {SITE, "http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:4173", "http://localhost:4173"}
+PAGES_SITE = "https://4ndr3js.github.io/reel/"
+ORIGINS = {SITE, "https://4ndr3js.github.io", "http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:4173", "http://localhost:4173"}
 SESSION = secrets.token_urlsafe(32)
 JOBS: dict[str, dict] = {}
 CACHE: dict[str, tuple[float, dict]] = {}

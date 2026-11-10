@@ -28,7 +28,7 @@ if not exist "engine\.deps\curl_cffi" (
 )
 echo.
 echo REEL - Keep the good stuff.
-echo Open https://reel-download-studio-9nov.ampledulse1.chatgpt.site
+echo Open https://4ndr3js.github.io/reel/
 echo.
 python engine\server.py
 pause
