@@ -1,13 +1,18 @@
-REEL ENGINE — WINDOWS QUICK START
+REEL ENGINE 1.1.0 — WINDOWS QUICK START
 
 1. Install Python 3.11+ from https://www.python.org/downloads/ and check Add Python to PATH.
 2. Install Node.js 22+ from https://nodejs.org/.
 3. Install FFmpeg: winget install Gyan.FFmpeg
 4. Open a fresh terminal after installation, or restart Windows if PATH has not refreshed.
-5. Double-click start-reel.cmd. Dependencies install in this folder on first launch.
+5. Close any older REEL engine windows. Double-click start-reel.cmd in this extracted folder.
+   Dependencies install in this folder on first launch. REEL opens in your browser when ready.
 6. Open https://4ndr3js.github.io/reel/
 7. Allow local-network access when prompted. Keep the engine window open.
 
 Only public YouTube and TikTok videos are supported. Save finished files before restarting the engine: its temporary download cache is cleared on startup. Nothing is uploaded to a conversion service. This engine listens only on your computer at 127.0.0.1:8941.
 
 If installation fails, check that python, node, ffmpeg and ffprobe are available from a terminal. Platform restrictions can make some videos unavailable.
+
+If the site says disconnected, open http://127.0.0.1:8941/ to see the engine status.
+An older engine may occupy the same port and reject the GitHub site. Close its window first.
+If the local status page says ready, allow local-network access for the REEL site in your browser.

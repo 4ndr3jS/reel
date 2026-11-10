@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import hmac
+import html
 import importlib.util
 import json
 import os
@@ -14,8 +15,11 @@ import subprocess
 import sys
 import threading
 import time
+import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, urlparse
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / ".data"
@@ -24,6 +28,7 @@ DEPS = Path(os.environ.get("REEL_PYTHON_DEPS", ROOT / ".deps"))
 sys.path.insert(0, str(DEPS))
 SITE = "https://reel-download-studio-9nov.ampledulse1.chatgpt.site"
 PAGES_SITE = "https://4ndr3js.github.io/reel/"
+VERSION = "1.1.0"
 ORIGINS = {SITE, "https://4ndr3js.github.io", "http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:4173", "http://localhost:4173"}
 SESSION = secrets.token_urlsafe(32)
 JOBS: dict[str, dict] = {}
@@ -35,6 +40,16 @@ MAX_BYTES = 1024 * 1024 * 1024
 FLAGS = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 YOUTUBE = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}
 TIKTOK = {"tiktok.com", "www.tiktok.com", "m.tiktok.com", "vm.tiktok.com", "vt.tiktok.com"}
+
+def runtime_status():
+    missing = []
+    for module, name in [("yt_dlp", "yt-dlp"), ("yt_dlp_ejs", "yt-dlp-ejs"), ("curl_cffi", "curl-cffi")]:
+        if importlib.util.find_spec(module) is None:
+            missing.append(name)
+    for command in ("ffmpeg", "ffprobe", "node"):
+        if not shutil.which(command):
+            missing.append(command)
+    return missing
 
 def validate_url(value):
     if not isinstance(value, str) or len(value) > 2048:
@@ -218,7 +233,7 @@ def execute_job(job_id, request):
         timer.cancel()
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "Reel/1.0"
+    server_version = "Reel/" + VERSION
     def log_message(self, *_args):
         pass
     def allowed(self):
@@ -250,9 +265,28 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed():
             return self.json(403, {"error": "Origin not allowed"})
         path = urlparse(self.path).path
+        if path == "/":
+            missing = runtime_status()
+            status = "Ready to download" if not missing else "Missing: " + ", ".join(missing)
+            body = (
+                '<!doctype html><html lang="en"><meta charset="utf-8">'
+                '<meta name="viewport" content="width=device-width, initial-scale=1">'
+                '<title>REEL engine status</title>'
+                '<body style="background:#f6f3eb;color:#232720;font:16px/1.7 system-ui;max-width:620px;margin:70px auto;padding:24px">'
+                '<h1>REEL engine ' + VERSION + '</h1><p>' + html.escape(status) + '</p>'
+                '<p>The engine is running on this computer. Keep its window open while downloading.</p>'
+                '<p><a href="' + PAGES_SITE + '">Open REEL</a></p>'
+                '<p>If REEL still shows disconnected, allow local-network access for the site in your browser and click Check connection. '
+                'If you installed an update, close older engine windows first.</p></body></html>'
+            ).encode("utf-8")
+            self.send_response(200); self.response_headers()
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body))); self.end_headers()
+            self.wfile.write(body)
+            return
         if path == "/api/health":
-            ready = bool(importlib.util.find_spec("yt_dlp") and shutil.which("ffmpeg") and shutil.which("ffprobe") and shutil.which("node"))
-            return self.json(200, {"ready": ready, "session": SESSION, "version": "1.0"})
+            missing = runtime_status()
+            return self.json(200, {"service": "reel", "ready": not missing, "missing": missing, "session": SESSION, "version": VERSION})
         match = re.fullmatch(r"/api/(jobs|files)/([0-9a-f]{32})", path)
         if not match:
             return self.json(404, {"error": "Not found"})
@@ -341,17 +375,49 @@ def main():
     if "--worker" in sys.argv:
         download_worker(json.loads(sys.stdin.readline()))
         return
-    server = ThreadingHTTPServer(("127.0.0.1", 8941), Handler)
+    missing = runtime_status()
+    if missing:
+        print("REEL cannot start. Missing: " + ", ".join(missing), flush=True)
+        print("Run start-reel.cmd to check the setup and install the Python dependencies.", flush=True)
+        return 1
+    try:
+        server = ThreadingHTTPServer(("127.0.0.1", 8941), Handler)
+    except OSError as exc:
+        if exc.errno not in (98, 48, 10048):
+            raise
+        try:
+            probe = Request("http://127.0.0.1:8941/api/health", headers={"Origin": "https://4ndr3js.github.io"})
+            with urlopen(probe, timeout=3) as response:
+                existing = json.load(response)
+            if existing.get("service") != "reel" and existing.get("version") != "1.0":
+                raise ValueError("Not a REEL engine")
+            print("REEL is already running. Leave that engine open and use the site.", flush=True)
+            if "--open" in sys.argv:
+                webbrowser.open(PAGES_SITE)
+            return 0
+        except HTTPError as error:
+            if error.code == 403:
+                print("An older REEL engine is already running and is blocking the GitHub Pages site.", flush=True)
+                print("Close its engine window, then run this start-reel.cmd again.", flush=True)
+            else:
+                print("Port 8941 is already in use. Close the other engine before starting REEL.", flush=True)
+        except (URLError, TimeoutError, ValueError):
+            print("Port 8941 is already in use. Close the other app before starting REEL.", flush=True)
+        return 1
     DOWNLOADS.mkdir(parents=True, exist_ok=True)
     # Only remove this app's UUID-named temporary folders within the verified cache root.
     root = DOWNLOADS.resolve()
     for folder in root.iterdir():
         if folder.is_dir() and re.fullmatch("[0-9a-f]{32}", folder.name) and folder.resolve().parent == root:
             shutil.rmtree(folder)
-    print("REEL engine ready at http://127.0.0.1:8941", flush=True)
+    print("REEL engine " + VERSION + " is ready.", flush=True)
+    print("Status: http://127.0.0.1:8941", flush=True)
+    print("Website: " + PAGES_SITE, flush=True)
     print("Keep this running while using REEL. Ctrl+C to stop.", flush=True)
+    if "--open" in sys.argv:
+        webbrowser.open(PAGES_SITE)
     try: server.serve_forever()
     except KeyboardInterrupt: pass
     finally: server.server_close()
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)

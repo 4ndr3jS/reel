@@ -32,6 +32,28 @@ class EngineTests(unittest.TestCase):
         self.auth = {"X-Reel-Session": health["session"]}
     def test_other_websites_cannot_access_engine(self):
         self.assertEqual(request("/api/health", headers={"Origin": "https://example.com"})[0], 403)
+    def test_github_pages_can_connect(self):
+        origin = "https://4ndr3js.github.io"
+        status, headers, raw = request("/api/health", headers={"Origin": origin})
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Access-Control-Allow-Origin"], origin)
+        health = json.loads(raw)
+        self.assertEqual(health["service"], "reel")
+        self.assertEqual(health["version"], "1.1.0")
+        self.assertEqual(health["missing"], [])
+        req = Request(BASE + "/api/jobs", method="OPTIONS", headers={
+            "Origin": origin, "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type,x-reel-session",
+            "Access-Control-Request-Private-Network": "true"})
+        with urlopen(req, timeout=5) as response:
+            self.assertEqual(response.status, 204)
+            self.assertEqual(response.headers["Access-Control-Allow-Origin"], origin)
+            self.assertEqual(response.headers["Access-Control-Allow-Private-Network"], "true")
+    def test_status_page_does_not_expose_session(self):
+        status, _, raw = request("/")
+        self.assertEqual(status, 200)
+        self.assertIn(b"REEL engine 1.1.0", raw)
+        self.assertNotIn(self.auth["X-Reel-Session"].encode(), raw)
     def test_missing_session_rejected(self):
         self.assertEqual(request("/api/jobs", {"url": "https://youtu.be/nc2ABcreL7c"})[0], 403)
     def test_invalid_and_private_network_urls_rejected(self):

@@ -3,32 +3,13 @@ setlocal
 cd /d "%~dp0"
 where python >nul 2>nul
 if errorlevel 1 (
-  echo Python 3.11 or later is required. Install it from python.org and add it to PATH.
+  echo Python 3.11 or later is required. Install it from https://www.python.org/downloads/ and add it to PATH.
   pause
   exit /b 1
 )
-where ffmpeg >nul 2>nul
+python engine\launcher.py
 if errorlevel 1 (
-  echo FFmpeg is required. Install it with: winget install Gyan.FFmpeg
-  pause
-  exit /b 1
+  echo.
+  echo REEL could not start. See the message above.
 )
-where node >nul 2>nul
-if errorlevel 1 (
-  echo Node.js 22 or later is required. Install it from nodejs.org.
-  pause
-  exit /b 1
-)
-if not exist "engine\.deps\curl_cffi" (
-  python -m pip install --disable-pip-version-check --target "engine\.deps" -r "engine\requirements.txt"
-  if errorlevel 1 (
-    pause
-    exit /b 1
-  )
-)
-echo.
-echo REEL - Keep the good stuff.
-echo Open https://4ndr3js.github.io/reel/
-echo.
-python engine\server.py
 pause

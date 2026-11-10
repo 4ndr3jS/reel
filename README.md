@@ -15,10 +15,12 @@ The site runs on GitHub Pages, but the downloading and conversion happen on your
 For Windows:
 
 1. Install Python 3.11+, Node.js 22.13+, and FFmpeg. Make sure `python`, `node`, `ffmpeg`, and `ffprobe` are available in your terminal.
-2. [Download the engine](https://4ndr3js.github.io/reel/reel-engine.zip) and unzip it.
-3. Double-click `start-reel.cmd`. It installs the Python dependencies on the first run.
+2. [Download the engine](https://4ndr3js.github.io/reel/reel-engine.zip) and unzip it into a new folder. Close any older REEL engine windows first.
+3. Double-click `start-reel.cmd`. It checks the setup, installs the Python dependencies on the first run, and opens REEL when ready.
 4. Open REEL. Allow local-network access if your browser asks, and look for **Engine online** in the header.
 5. Paste your link, pick the format and quality, then download. Hit **Save file** when it's ready.
+
+If the site says disconnected, check [the engine status](http://127.0.0.1:8941/). An older engine can block the new site, so close it before starting the latest version.
 
 Keep the engine window open. Save any files you want before restarting it, because a restart clears its temporary downloads.
 
